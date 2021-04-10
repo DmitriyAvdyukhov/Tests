@@ -100,7 +100,7 @@ std::vector<std::string> SplitIntoWords(const std::string& text) {
     return words;
 }
 
-enum DocumentStatus {
+enum  DocumentStatus {
     ACTUAL,
     IRRELEVANT,
     BANNED,
@@ -309,9 +309,6 @@ private:
     }
 };
 
-
-
-
 void TestExcludeStopWordsFromAddedDocumentContent() {
     const int doc_id = 42;
     const string content = "cat in the city"s;
@@ -341,6 +338,8 @@ void TestExcludeMinusWords() {
 
     vector<Document> document = search_server.FindTopDocuments("-пушистый -ухоженный кот"s);
     Assert((document[0].id == 0 && (document.size() == 1)), "Search doc by minus word return 0"s);
+    Assert((!document.empty()), "Search doc by minus word return 0"s);
+    Assert((document.size() == 1), "Search doc by minus word return 0"s);
 }
 
 void TestCorrectMatching() {
@@ -367,12 +366,13 @@ void TestCorrectSort() {
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s);
-    double relevance = 0;
+    double relevance (0);
     for (const auto& document : documents) {
         if (relevance != 0) Assert((document.relevance <= relevance), "Sort by relevance"s);
         relevance = document.relevance;
-
     }
+    Assert((documents[0].relevance > documents[1].relevance), "Sort by relevance"s);
+    Assert((documents[0].relevance != documents[1].relevance), "Sort by relevance"s);
 }
 
 void TestCorrectRating() {
@@ -392,7 +392,6 @@ void TestCorrectRating() {
     }
 }
 
-
 void TestResultFromPredicate() {
     auto predicate = [](int id, DocumentStatus status, int rating = 1) {
         if (status == DocumentStatus::ACTUAL)rating++;
@@ -405,10 +404,9 @@ void TestResultFromPredicate() {
     string query = "-пушистый -ухоженный кот"s;
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
     AssertEqual(documents.size(), 1, "method Size()"s);
-    AssertEqual(documents[0].id, 1, "");
-
+    AssertEqual(documents[0].id, 1, "");    
+    Assert(!(documents.size() == 2), "method Size()"s);
 }
-
 
 void TestSearchDocumentByStatus() {
     SearchServer search_server;
@@ -420,8 +418,9 @@ void TestSearchDocumentByStatus() {
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::REMOVED);
     AssertEqual(documents.size(), 1, "method Size()"s);
     AssertEqual(documents[0].id, 1, "");
+    vector<Document> documents1 = search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL);
+    AssertEqual(documents1.size(), 2, "method Size()"s);
 }
-
 
 void TestCorrectRelevance() {
     SearchServer search_server;
@@ -431,13 +430,13 @@ void TestCorrectRelevance() {
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
     string query = "-пушистый -ухоженный кот"s;
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s);
+    const double eps = 1e-6;
     for (const auto& document : documents) {
-        if (document.id == 0) Assert((abs(document.relevance - 0.138629) < 0.0001), "For document.id=0"s);
-        if (document.id == 1) Assert((abs(document.relevance - 0.866434) < 0.0001), "For document.id=1"s);
-        if (document.id == 2) Assert((abs(document.relevance - 0.173287) < 0.0001), "For document.id=2"s);
+        if (document.id == 0) Assert((abs(document.relevance - 0.138629) < eps), "For document.id=0"s);
+        if (document.id == 1) Assert((abs(document.relevance - 0.866434) < eps), "For document.id=1"s);
+        if (document.id == 2) Assert((abs(document.relevance - 0.173287) < eps), "For document.id=2"s);
     }
 }
-
 
 template<class TestFunc>
 void RunTestImpl(TestFunc func, const string& name_test) {
