@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 #include <numeric>
-//#pragma warning(disable:4100)// исключение предупреждения
+
 
 
 using namespace std;
@@ -108,8 +108,8 @@ enum  DocumentStatus {
 };
 
 struct Document {
-        Document(int id_ = 0, double relevance_ = 0, int rating_ = 0) :
-                id(id_), relevance(relevance_), rating(rating_){}
+    Document(int id_ = 0, double relevance_ = 0, int rating_ = 0) :
+        id(id_), relevance(relevance_), rating(rating_) {}
     int id;
     double relevance;
     int rating;
@@ -119,16 +119,16 @@ class SearchServer {
 public:
     SearchServer() {}
 
-    explicit SearchServer(const std::string& stop_words) 
+    explicit SearchServer(const std::string& stop_words)
     {
         for (const std::string& word : SplitIntoWords(stop_words)) {
             stop_words_.emplace(word);
-        }    
+        }
     }
 
-    template<class StringCollection>   
+    template<class StringCollection>
     explicit SearchServer(const StringCollection& stop_words)
-    {        
+    {
         for (const auto& word : stop_words) {
             if (word[0] == ' ') {
                 continue;
@@ -137,14 +137,14 @@ public:
                 stop_words_.emplace(word);
             }
         }
-	}	              
+    }
 
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
             stop_words_.insert(word);
         }
     }
-         
+
     void AddDocument(int document_id, const std::string& document, DocumentStatus status,
         const std::vector<int>& score) {
         const std::vector<std::string> words = SplitIntoWordsNoStop(document);
@@ -171,7 +171,7 @@ public:
         const double eps = 1e-6;
         sort(matched_documents.begin(), matched_documents.end(),
             [&](const Document& lhs, const Document& rhs) {
-                if ((abs(lhs.relevance - rhs.relevance)) < eps) {
+                if ((std::abs(lhs.relevance - rhs.relevance)) < eps) {
                     return lhs.rating > rhs.rating;
                 }
                 else {
@@ -185,7 +185,7 @@ public:
         return matched_documents;
     }
 
-   std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& text, int document_id) const {
+    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& text, int document_id) const {
         const Query query = ParseQuery(text);
         std::vector<std::string> matched_words;
         for (const std::string& word : query.plus_words) {
@@ -317,10 +317,10 @@ void TestExcludeStopWordsFromAddedDocumentContent() {
         SearchServer server;
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         const auto found_docs = server.FindTopDocuments("in"s);
-        AssertEqual(found_docs.size(), 1, "Search doc by word method size()"s );
+        AssertEqual(found_docs.size(), 1, "Search doc by word method size()"s);
         const Document& doc0 = found_docs[0];
         Assert((doc0.id == doc_id), "Search doc by word in struct Document"s);
-    }    
+    }
     {
         SearchServer server;
         server.SetStopWords("in the"s);
@@ -336,10 +336,14 @@ void TestExcludeMinusWords() {
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
 
-    vector<Document> document = search_server.FindTopDocuments("-пушистый -ухоженный кот"s);
+    vector<Document> document = search_server.FindTopDocuments("-пушистый -ухоженный -кот"s);
+    Assert((document.empty()), "Search doc by minus word return 0"s);
+
+    document = search_server.FindTopDocuments("-пушистый -ухоженный кот"s);
     Assert((document[0].id == 0 && (document.size() == 1)), "Search doc by minus word return 0"s);
-    Assert((!document.empty()), "Search doc by minus word return 0"s);
-    Assert((document.size() == 1), "Search doc by minus word return 0"s);
+
+    document = search_server.FindTopDocuments("пушистый ухоженный кот"s);
+    Assert((document.size() == 3), "Search doc by minus word return 0"s);
 }
 
 void TestCorrectMatching() {
@@ -348,14 +352,19 @@ void TestCorrectMatching() {
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+
     string query = "-пушистый -ухоженный кот"s;
     vector<Document> document = search_server.FindTopDocuments("-пушистый -ухоженный кот"s);
+
     auto a = search_server.MatchDocument(query, 1);
     vector<string> vect = get<vector<string>>(a);
+
     Assert((vect.empty()), "For minus word Return vector matchdocument empty() for id = 1"s);
+
     auto b = search_server.MatchDocument(query, 0);
     vect = get<vector<string>>(b);
-    Assert((vect.empty() == false), "For minus word Return vector matchdocument empty() for id = 0"s);
+
+    Assert((!vect.empty() && vect.size() == 1), "For minus word Return vector matchdocument empty() for id = 0"s);
     AssertEqual(count(vect.begin(), vect.end(), "кот"s), 1, "number of words in Document"s);
 }
 
@@ -365,14 +374,16 @@ void TestCorrectSort() {
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s);
-    double relevance (0);
+
+    double relevance(0);
     for (const auto& document : documents) {
         if (relevance != 0) Assert((document.relevance <= relevance), "Sort by relevance"s);
         relevance = document.relevance;
     }
-    Assert((documents[0].relevance > documents[1].relevance), "Sort by relevance"s);
-    Assert((documents[0].relevance != documents[1].relevance), "Sort by relevance"s);
+    Assert((documents[0].relevance > documents[1].relevance && documents[0].relevance > documents[2].relevance), "Sort by relevance  id0 is greater than id1, id2 "s);
+    Assert((documents[1].relevance > documents[2].relevance && documents[0].relevance > documents[1].relevance), "Sort by relevance id1 is greater than id2 and less than id0"s);
 }
 
 void TestCorrectRating() {
@@ -381,31 +392,33 @@ void TestCorrectRating() {
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
-    string query = "-пушистый -ухоженный кот"s;
+
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s);
-    for (const auto& document : documents) {
-        int n = (8 - 3) / 2;
-        if (document.id == 0) AssertEqual(document.rating, n, "For id = 0"s);
-        n = 16 / 3;
-        if (document.id == 1) AssertEqual(document.rating, n, "For id = 1"s);
-        if (document.id == 2) AssertEqual(document.rating , -1, "For id = 2"s);
-    }
+    Assert((documents[0].rating != documents[1].rating
+        && documents[0].rating != documents[2].rating
+        && documents[1].rating != documents[2].rating), "ratings are unequal"s);
+
+    Assert(documents[0].rating > documents[1].rating, "rating id1 is graeter than rating id2"s);
+    AssertEqual(documents[0].rating, 5, "For id = 0"s);
+    AssertEqual(documents[1].rating, -1, "For id = 1"s);
+    AssertEqual(documents[2].rating, 2, "For id = 2"s);
+
 }
 
 void TestResultFromPredicate() {
-    auto predicate = [](int id, DocumentStatus status, int rating = 1) {
-        if (status == DocumentStatus::ACTUAL)rating++;
-        return id == 1; };
+
     SearchServer search_server;
     search_server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
-    string query = "-пушистый -ухоженный кот"s;
+
+    auto predicate = [](int id, DocumentStatus status, int rating) { return id == 1; };
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
-    AssertEqual(documents.size(), 1, "method Size()"s);
-    AssertEqual(documents[0].id, 1, "");    
-    Assert(!(documents.size() == 2), "method Size()"s);
+
+    AssertEqual(documents[0].id, 1, "documents[0] has id = 1");
+    AssertEqual(documents.size(), 1, "documents has a size = 1"s);
+    Assert(!(documents[0].id == 2), "documents[0] has no id = 2");
 }
 
 void TestSearchDocumentByStatus() {
@@ -414,12 +427,18 @@ void TestSearchDocumentByStatus() {
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::REMOVED, { 7, 2, 7 });
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
-    string query = "-пушистый -ухоженный кот"s;
+
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::REMOVED);
-    AssertEqual(documents.size(), 1, "method Size()"s);
-    AssertEqual(documents[0].id, 1, "");
+
+    AssertEqual(documents.size(), 1, "documents has a size = 1 with DocumentStatus::REMOVED"s);
+    AssertEqual(documents[0].id, 1, "document with DocumentStatus::REMOVED has id = 1");
+    Assert(!(documents[0].id == 2), "document with DocumentStatus::REMOVED has no id = 2");
+
     vector<Document> documents1 = search_server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL);
-    AssertEqual(documents1.size(), 2, "method Size()"s);
+
+    AssertEqual(documents1.size(), 2, "documents has a size = 2 with DocumentStatus::ACTUAL"s);
+    Assert((documents1[0].id == 2 && documents1[1].id == 0), "document with DocumentStatus::ACTUAL has  id = 2 and d = 0"s);
+    Assert(!(documents1[0].id == 1 && documents1[1].id == 3), "document with DocumentStatus::ACTUAL has no id = 1 and id = 3"s);
 }
 
 void TestCorrectRelevance() {
@@ -428,14 +447,17 @@ void TestCorrectRelevance() {
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
     search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
-    string query = "-пушистый -ухоженный кот"s;
+
     vector<Document> documents = search_server.FindTopDocuments("пушистый ухоженный кот"s);
+
+    Assert((std::abs(documents[2].relevance) == std::abs(0.13862943611198905)), "relevance for document.id=0"s);
+    Assert((std::abs(documents[0].relevance) == std::abs(0.86643397569993164)), "relevance for document.id=1"s);
+    Assert((std::abs(documents[1].relevance) == std::abs(0.17328679513998632)), "relevance for document.id=2"s);
+
     const double eps = 1e-6;
-    for (const auto& document : documents) {
-        if (document.id == 0) Assert((abs(document.relevance - 0.138629) < eps), "For document.id=0"s);
-        if (document.id == 1) Assert((abs(document.relevance - 0.866434) < eps), "For document.id=1"s);
-        if (document.id == 2) Assert((abs(document.relevance - 0.173287) < eps), "For document.id=2"s);
-    }
+    Assert((std::abs(documents[2].relevance - 0.138629) < eps), "correct relevance for document.id=0"s);
+    Assert((std::abs(documents[0].relevance - 0.866434) < eps), "correct relevance for document.id=1"s);
+    Assert((std::abs(documents[1].relevance - 0.173287) < eps), "correct relevance for document.id=2"s);
 }
 
 template<class TestFunc>
@@ -457,8 +479,8 @@ void TestSearchServer() {
     RUN_TEST(TestCorrectRelevance);
 }
 
-int main() {   
-   
-   TestSearchServer();    
+int main() {
+
+    TestSearchServer();
     cout << "Search server testing finished"s << endl;
 }
