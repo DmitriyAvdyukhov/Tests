@@ -181,7 +181,9 @@ public:
     // Обменивает содержимое списков за время O(1)
     void swap(SingleLinkedList& other) noexcept 
     {
-        std::swap(head_.next_node, other.head_.next_node);
+        Node* temp_head = other.head_.next_node;
+        other.head_.next_node = head_.next_node;
+        head_.next_node = temp_head;
         std::swap(size_, other.size_);
     }
 
